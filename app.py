@@ -1,6 +1,6 @@
 import os
 
-from flask import Flask, render_template, request, flash, redirect, session, g
+from flask import Flask, render_template, request, flash, redirect, session, g, url_for
 from flask_debugtoolbar import DebugToolbarExtension
 from sqlalchemy.exc import IntegrityError
 
@@ -112,6 +112,9 @@ def login():
 @app.route('/logout')
 def logout():
     """Handle logout of user."""
+    do_logout()
+    flash("You have successfully logged out", "success")
+    return redirect(url_for('login'))
 
     # IMPLEMENT THIS
 
