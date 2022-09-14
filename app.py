@@ -228,7 +228,7 @@ def profile():
         db.session.commit()
         return redirect(url_for('users_show', user_id=g.user.id))
     
-    return render_template("/users/edit.html", form=form)
+    return render_template("/users/edit.html", form=form, user_id=g.user.id)
     # IMPLEMENT THIS
 
 
@@ -310,8 +310,12 @@ def homepage():
     """
 
     if g.user:
+        # get the ids of the users that the logged in user is following
+        following = [user.id for user in g.user.following]
+        following.append(g.user.id)
         messages = (Message
                     .query
+                    .filter(Message.user_id.in_(following))
                     .order_by(Message.timestamp.desc())
                     .limit(100)
                     .all())
