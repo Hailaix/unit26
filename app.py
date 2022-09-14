@@ -229,7 +229,6 @@ def profile():
         return redirect(url_for('users_show', user_id=g.user.id))
     
     return render_template("/users/edit.html", form=form, user_id=g.user.id)
-    # IMPLEMENT THIS
 
 
 @app.route('/users/delete', methods=["POST"])
@@ -324,6 +323,40 @@ def homepage():
 
     else:
         return render_template('home-anon.html')
+
+##############################################################################
+# Likes routes:
+
+@app.route("/users/<int:user_id>/likes")
+def likes(user_id):
+    if not g.user:
+        flash("Access unauthorized.", "danger")
+        return redirect(url_for('homepage'))
+    user = User.query.get_or_404(user_id)
+    # for simplicity, we can just reuse the home template, as it also works for this
+    return render_template('home.html', messages=user.likes)
+
+
+@app.route("/users/add_like/<int:message_id>", methods=["POST"])
+def add_like(message_id):
+    """Adds or removes a message to a user's likes"""
+    if not g.user:
+        flash("Access unauthorized.", "danger")
+        return redirect(url_for('homepage'))
+
+    message = Message.query.get_or_404(message_id)
+    if message not in g.user.likes:
+        # adds like
+        g.user.likes.append(message)
+        flash("Message Liked", "success")
+    else:
+        # removes like
+        g.user.likes.remove(message)
+        flash("Message Unliked", "danger")
+
+    db.session.commit()
+
+    return redirect(url_for('likes', user_id=g.user.id))
 
 
 ##############################################################################
