@@ -51,6 +51,11 @@ class MessageViewTestCase(TestCase):
 
         db.session.commit()
 
+    def tearDown(self):
+        """Clean up fouled transactions."""
+
+        db.session.rollback()
+
     def test_add_message(self):
         """Can use add a message?"""
 
@@ -71,3 +76,90 @@ class MessageViewTestCase(TestCase):
 
             msg = Message.query.one()
             self.assertEqual(msg.text, "Hello")
+    
+    def test_message_page(self):
+        """Test the message detail page"""
+        msg = Message(
+            id=5555,
+            text="Test Message",
+            user_id=self.testuser.id
+        )
+        db.session.add(msg)
+        db.session.commit()
+        with self.client as c:
+            with c.session_transaction() as sess:
+                sess[CURR_USER_KEY] = self.testuser.id
+            resp = c.get('/messages/5555')
+            html = resp.get_data(as_text=True)
+            self.assertEqual(resp.status_code, 200)
+            self.assertIn("Test Message", html)
+
+    def test_delete_message(self):
+        """Test message deletion"""
+
+        delete_me = Message(
+            id=5555,
+            text="Delete Me!",
+            user_id = self.testuser.id
+        )
+        db.session.add(delete_me)
+        db.session.commit()
+
+        with self.client as c:
+            with c.session_transaction() as sess:
+                sess[CURR_USER_KEY] = self.testuser.id
+            resp = c.post("/messages/5555/delete")
+            # Make sure it redirects
+            self.assertEqual(resp.status_code, 302)
+            self.assertIsNone(Message.query.first())
+
+
+# #########################################################
+# Auth failure tests
+    def test_delete_message_no_auth(self):
+        """Test unauthorized message deletion"""
+        delete_me = Message(
+            id=5555,
+            text="Delete Me!",
+            user_id = self.testuser.id
+        )
+        db.session.add(delete_me)
+        db.session.commit()
+
+        with self.client as c:
+            res = c.post("/messages/5555/delete", follow_redirects=True)
+            html = res.get_data(as_text=True)
+            self.assertEqual(res.status_code, 200)
+            self.assertIn("Access unauthorized", html)
+    
+    def test_delete_message_bad_auth(self):
+        """Test wrong authorization message deletion"""
+        delete_me = Message(
+            id=5555,
+            text="Delete Me!",
+            user_id = self.testuser.id
+        )
+        second_user = User.signup(username="testuser2",
+                                    email="test2@test.com",
+                                    password="testuser",
+                                    image_url=None)
+        db.session.add(delete_me)
+        db.session.commit()
+
+        with self.client as c:
+            with c.session_transaction() as sess:
+                sess[CURR_USER_KEY] = second_user.id
+            res = c.post("/messages/5555/delete", follow_redirects=True)
+            html = res.get_data(as_text=True)
+            self.assertEqual(res.status_code, 200)
+            self.assertIn("Access unauthorized", html)
+    
+    def test_add_message_no_auth(self):
+        """Test unauthorized message add"""
+        with self.client as c:
+            resp = c.post("/messages/new", data={"text": "Hello"}, follow_redirects=True)
+            html = resp.get_data(as_text=True)
+            self.assertEqual(resp.status_code, 200)
+            self.assertIn("Access unauthorized", html)
+    
+    
